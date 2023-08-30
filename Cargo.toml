@@ -9,3 +9,5 @@ edition = "2021"
 umya-spreadsheet = "1.0.0"
 pcsc = "2.8.0"
 hex = "0.4.3"
+serde = { version = "1.0.188", features = ["derive"] }
+toml = "0.7.6"

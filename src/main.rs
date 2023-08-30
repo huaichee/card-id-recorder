@@ -1,5 +1,12 @@
-use std::env;
+use std::fs;
+
 use pcsc::*;
+use serde::Deserialize;
+
+#[derive(Deserialize, Debug)]
+struct Config {
+    is_cepas: bool,
+}
 
 fn main() {
     let card_no = read_card().unwrap();
@@ -7,10 +14,23 @@ fn main() {
     write_workbook(&card_no);
 }
 
-fn write_workbook(card_no: &str){
-    // let file = "/test2.xlsx";
+fn get_settings() -> Config {
+    let config_file = fs::read_to_string(r"setting.toml");
 
-    let path = std::path::Path::new(r"C:\test2.xlsx");
+    let config: Config = match config_file {
+        Ok(file) => toml::from_str(&file).unwrap(),
+        Err(_) => Config {
+            is_cepas: false,
+        },
+    };
+
+    return config;
+}
+
+fn write_workbook(card_no: &str){
+    let file = r"test2.xlsx";
+
+    let path = std::path::Path::new(file);
     let mut book = umya_spreadsheet::reader::xlsx::read(path).unwrap();
 
     let worksheet = book.get_sheet_by_name_mut("data").unwrap();
@@ -41,7 +61,7 @@ fn write_workbook(card_no: &str){
 }   
 
 fn read_card() -> Result<String, Error> {
-    // let is_cepas = env::var("CEPAS").unwrap();
+    let setting = get_settings();
 
     // Establish a PC/SC context.
     let ctx = match Context::establish(Scope::User) {
@@ -82,50 +102,50 @@ fn read_card() -> Result<String, Error> {
         }
     };
 
-    // if is_cepas == "1" {
-    //     // Send an APDU command.
-    //     let initialize_cepas = b"\x00\xA4\x00\x00\x02\x00\x00";
+    if setting.is_cepas == true {
+        // Send an APDU command.
+        let initialize_cepas = b"\x00\xA4\x00\x00\x02\x00\x00";
 
-    //     let mut cepas_buf = [0; MAX_BUFFER_SIZE];
-    //     let turn_on_cepas = match card.transmit(initialize_cepas, &mut cepas_buf) {
-    //         Ok(rapdu) => rapdu,
-    //         Err(err) => {
-    //             eprintln!("Failed to transmit APDU command to card: {}", err);
-    //             std::process::exit(1);
-    //         }
-    //     };
+        let mut cepas_buf = [0; MAX_BUFFER_SIZE];
+        let turn_on_cepas = match card.transmit(initialize_cepas, &mut cepas_buf) {
+            Ok(rapdu) => rapdu,
+            Err(err) => {
+                eprintln!("Failed to transmit APDU command to card: {}", err);
+                std::process::exit(1);
+            }
+        };
 
-    //     println!("Cepas status: {:?}", turn_on_cepas);
+        println!("Cepas status: {:?}", turn_on_cepas);
 
-    //     let apdu = b"\x90\x32\x03\x00\x00\x00";
+        let apdu = b"\x90\x32\x03\x00\x00\x00";
 
-    //     let mut rapdu_buf = [0; MAX_BUFFER_SIZE];
-    //     let mut rapdu: Vec<_> = match card.transmit(apdu, &mut rapdu_buf) {
-    //         Ok(rapdu) => rapdu.to_vec(),
-    //         Err(err) => {
-    //             eprintln!("Failed to transmit APDU command to card: {}", err);
-    //             std::process::exit(1);
-    //         }
-    //     };
+        let mut rapdu_buf = [0; MAX_BUFFER_SIZE];
+        let mut rapdu: Vec<_> = match card.transmit(apdu, &mut rapdu_buf) {
+            Ok(rapdu) => rapdu.to_vec(),
+            Err(err) => {
+                eprintln!("Failed to transmit APDU command to card: {}", err);
+                std::process::exit(1);
+            }
+        };
 
-    //     // remove 144, 0
-    //     rapdu.truncate(rapdu.len() - 2);
+        // remove 144, 0
+        rapdu.truncate(rapdu.len() - 2);
 
 
-    //     let hex_value: Vec<_> = rapdu
-    //         .iter()
-    //         .map(|x| hex::encode_upper(x.to_be_bytes()))
-    //         .collect();
+        let hex_value: Vec<_> = rapdu
+            .iter()
+            .map(|x| hex::encode_upper(x.to_be_bytes()))
+            .collect();
 
-    //     let hex_1 = &hex_value[8..16].join("");
+        let hex_1 = &hex_value[8..16].join("");
 
-    //     println!("CAN: {:?}", hex_1);
+        println!("CAN: {:?}", hex_1);
 
-    //     println!("CSN: {:?}", &hex_value[17..25].join(":"));
+        println!("CSN: {:?}", &hex_value[17..25].join(":"));
 
-    //     Ok(hex_1.to_string())
+        Ok(hex_1.to_string())
 
-    // } else {
+    } else {
         let apdu = b"\xFF\xCA\x00\x00\x00";
 
         let mut rapdu_buf = [0; MAX_BUFFER_SIZE];
@@ -167,4 +187,5 @@ fn read_card() -> Result<String, Error> {
 
         Ok(hex_method_1)
     // }
+}
 }
